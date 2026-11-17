@@ -59,12 +59,13 @@ The registry lives in
 
 ## Vault
 
-Vault is off by default. It turns on only when all four of these are set:
+Vault is off by default. It turns on when these are set:
 
 - `VAULT_ADDR`
-- `VAULT_NAMESPACE`
 - `VAULT_ROLE_ID`
 - `VAULT_SECRET_ID`
+
+`VAULT_NAMESPACE` is optional and should be omitted for Vault Community, which uses the root namespace. Configure a namespace only with Vault Enterprise or HCP Vault.
 
 `VAULT_AUTH_MOUNT` and `VAULT_KV_MOUNT` are optional overrides. A partial
 configuration is ignored with a warning, and credentials fall back to plaintext

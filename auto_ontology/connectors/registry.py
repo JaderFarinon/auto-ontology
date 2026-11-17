@@ -24,6 +24,7 @@ from auto_ontology.connectors.mysql import MySQLDatabase
 from auto_ontology.connectors.postgres import PostgresDatabase
 from auto_ontology.connectors.snowflake import SnowflakeDatabase
 from auto_ontology.connectors.sqlite import SQLiteDatabase
+from auto_ontology.connectors.sqlserver import SQLServerDatabase
 from auto_ontology.connectors.trino import TrinoDatabase
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,8 @@ CONNECTOR_REGISTRY: dict[str, type[SQLDatabase]] = {
     "postgres": PostgresDatabase,
     "postgresql": PostgresDatabase,
     "mysql": MySQLDatabase,
+    "mssql": SQLServerDatabase,
+    "sqlserver": SQLServerDatabase,
     "databricks": DatabricksDatabase,
     "duckdb": DuckDBDatabase,
     "snowflake": SnowflakeDatabase,
@@ -166,6 +169,7 @@ def create_connector(
             SnowflakeDatabase,
             KyuubiDatabase,
             TrinoDatabase,
+            SQLServerDatabase,
         ):
             connector = connector_class(connection_string, schemas=schemas)
         else:

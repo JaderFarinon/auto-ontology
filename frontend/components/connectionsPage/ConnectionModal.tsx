@@ -32,6 +32,7 @@ const SCHEMA_SELECTION_TYPES: ReadonlySet<ConnectionType> = new Set([
 	ConnectionType.SNOWFLAKE,
 	ConnectionType.KYUUBI,
 	ConnectionType.TRINO,
+	ConnectionType.MSSQL,
 ]);
 
 type FieldValues = Partial<Record<ConnectionFieldKey, string>>;
@@ -82,6 +83,9 @@ export const ConnectionModal = ({
 		connection == null ? {} : toFieldValues(connection.connection),
 	);
 	const [alert, setAlert] = useState<string | null>(null);
+	const [systemDescription, setSystemDescription] = useState(
+		connection?.connection.system_description ?? '',
+	);
 
 	// The stored allowlist is what the picker reopens on, and what a re-test
 	// falls back to rather than silently dropping the connection's scope.
@@ -140,7 +144,11 @@ export const ConnectionModal = ({
 				// stores them as 'true'/'' like every other value.
 				field.boolean ? values[field.key] === 'true' : (values[field.key] ?? '').trim(),
 			]);
-			const base = { type: connectionType, ...Object.fromEntries(entries) };
+			const base = {
+				type: connectionType,
+				...Object.fromEntries(entries),
+				system_description: systemDescription.trim(),
+			};
 			if (supportsSchemaSelection) {
 				// A named schema is the allowlist; otherwise use whatever was picked.
 				if (explicitSchema) {
@@ -152,7 +160,14 @@ export const ConnectionModal = ({
 			}
 			return base as ConnectionInput;
 		},
-		[connectionType, values, supportsSchemaSelection, selectedSchemas, explicitSchema],
+		[
+			connectionType,
+			values,
+			supportsSchemaSelection,
+			selectedSchemas,
+			explicitSchema,
+			systemDescription,
+		],
 	);
 
 	const fieldsComplete = useMemo(() => {
@@ -270,19 +285,38 @@ export const ConnectionModal = ({
 				return <ConnectionTypeStep onSelect={handleSelectType} />;
 			case CONNECT_STEP:
 				return (
-					<ConnectionConnectStep
-						connectionType={connectionType}
-						values={values}
-						onFieldChange={handleFieldChange}
-						readOnlyKeys={readOnlyKeys}
-						keepCurrentKeys={keepCurrentKeys}
-						testSuccessMessage={testSuccessMessage}
-						onTestConnection={() => {
-							void handleTestConnection();
-						}}
-						testDisabled={!fieldsComplete || loading}
-						testingConnection={testingConnection}
-					/>
+					<>
+						<ConnectionConnectStep
+							connectionType={connectionType}
+							values={values}
+							onFieldChange={handleFieldChange}
+							readOnlyKeys={readOnlyKeys}
+							keepCurrentKeys={keepCurrentKeys}
+							testSuccessMessage={testSuccessMessage}
+							onTestConnection={() => {
+								void handleTestConnection();
+							}}
+							testDisabled={!fieldsComplete || loading}
+							testingConnection={testingConnection}
+						/>
+						<label className="flex flex-col gap-1.5 px-2 pb-2">
+							<span className="text-sm font-medium text-heading dark:text-zinc-200">
+								System description for the agent
+							</span>
+							<textarea
+								value={systemDescription}
+								onChange={({ target }) => setSystemDescription(target.value)}
+								placeholder="Describe which system this connection contains and what its data represents."
+								rows={3}
+								maxLength={4000}
+								className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-heading outline-none focus:border-[#76b900] focus:ring-2 focus:ring-[#76b900]/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+							/>
+							<span className="text-xs text-secondary dark:text-zinc-400">
+								This description is saved in the database catalog and helps the
+								agent interpret the source.
+							</span>
+						</label>
+					</>
 				);
 			case SCHEMA_STEP:
 				return (

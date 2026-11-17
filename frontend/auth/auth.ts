@@ -59,6 +59,23 @@ const mcpResource = (): string => {
 	return 'http://localhost:3003/mcp';
 };
 
+const trustedAppOrigins = (): string[] => {
+	const appUrl = process.env.APP_URL;
+	if (!appUrl) return [];
+	const origins = [appUrl];
+	try {
+		const configured = new URL(appUrl);
+		if (configured.hostname === 'localhost' || configured.hostname === '127.0.0.1') {
+			const loopbackAlias = new URL(configured);
+			loopbackAlias.hostname = configured.hostname === 'localhost' ? '127.0.0.1' : 'localhost';
+			origins.push(loopbackAlias.origin);
+		}
+	} catch {
+		// Better Auth validates the configured APP_URL itself when it is valid.
+	}
+	return origins;
+};
+
 /** True once at least one SSO provider has been registered. */
 export const isSsoConfigured = async (): Promise<boolean> => (await prisma.ssoProvider.count()) > 0;
 
@@ -70,7 +87,7 @@ export const auth = betterAuth({
 	// Cursor's desktop callback is a custom-scheme URI. Without this, the
 	// authorize/consent hop can fail origin checks after DCR succeeds.
 	trustedOrigins: [
-		process.env.APP_URL,
+		...trustedAppOrigins(),
 		'cursor://',
 		'http://localhost:8787',
 		'http://127.0.0.1:8787',

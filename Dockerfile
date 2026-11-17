@@ -128,6 +128,9 @@ case "$mode" in
 esac
 EOF
 
+# Normalize the heredoc when the Dockerfile comes from a Windows checkout.
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh
+
 # License and attribution files (OSRB): see CONTAINER_THIRD_PARTY_NOTICES.md.
 COPY LICENSE THIRD_PARTY_NOTICES.md CONTAINER_THIRD_PARTY_NOTICES.md OPEN_SOURCE_NOTICE /licenses/
 

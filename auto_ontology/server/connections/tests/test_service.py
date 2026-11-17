@@ -5,6 +5,8 @@
 import json
 from unittest.mock import patch
 
+import pytest
+
 from auto_ontology.server.connections import service
 from auto_ontology.server.connections.router import _serialize_connection
 
@@ -34,7 +36,7 @@ def _kyuubi_connection() -> dict[str, object]:
 
 
 def test_create_connection_persists_connection_without_vault() -> None:
-    connection = _snowflake_connection()
+    connection = {**_snowflake_connection(), "system_description": "Clinic billing and schedules"}
 
     with (
         patch.object(service, "_database_already_connected", return_value=False),
@@ -49,7 +51,11 @@ def test_create_connection_persists_connection_without_vault() -> None:
     stored = json.loads(insert_connection.call_args.kwargs["connection"])
     assert stored["password"] == "secret"
     assert stored["schemas"] == ["GPU_FLEET"]
-    trigger_ingest.assert_called_once_with(connection)
+    assert "system_description" not in stored
+    assert insert_connection.call_args.kwargs["description"] == "Clinic billing and schedules"
+    trigger_ingest.assert_called_once_with(
+        {key: value for key, value in connection.items() if key != "system_description"}
+    )
 
 
 def test_public_connection_payload_redacts_credentials() -> None:
@@ -368,3 +374,12 @@ def test_create_connection_drops_the_schema_shorthand() -> None:
     stored = json.loads(insert_connection.call_args.kwargs["connection"])
     assert "schema" not in stored
     assert stored["schemas"] == ["sales"]
+
+
+def test_production_guard_requires_vault(monkeypatch) -> None:
+    monkeypatch.setenv("REQUIRE_VAULT_FOR_CONNECTIONS", "true")
+    with (
+        patch.object(service, "is_vault_configured", return_value=False),
+        pytest.raises(ValueError, match="Vault must be configured"),
+    ):
+        service._require_vault_if_enforced()

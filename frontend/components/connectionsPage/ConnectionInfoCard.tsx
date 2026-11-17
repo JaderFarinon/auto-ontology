@@ -99,6 +99,11 @@ export const ConnectionInfoCard = ({
 					)}
 				</div>
 			</header>
+			{connection.connection.system_description?.trim() ? (
+				<p className="border-t border-zinc-200/90 px-4 py-3 text-xs text-secondary dark:border-zinc-700/90 dark:text-zinc-400">
+					{connection.connection.system_description}
+				</p>
+			) : null}
 			{showSsoFederation && (
 				<div className="border-t border-zinc-200/90 px-4 py-3 dark:border-zinc-700/90">
 					<label className="flex cursor-pointer items-start gap-2">

@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 REQUIRED_VAULT_ENV_VARS = (
     "VAULT_ADDR",
-    "VAULT_NAMESPACE",
     "VAULT_ROLE_ID",
     "VAULT_SECRET_ID",
 )
@@ -49,10 +48,11 @@ def get_client() -> hvac.Client:
     addr = os.environ["VAULT_ADDR"]
     auth_mount = os.environ.get("VAULT_AUTH_MOUNT", "approle/nvdcs/dc1")
     try:
-        client = hvac.Client(
-            url=addr,
-            namespace=os.environ["VAULT_NAMESPACE"],
-        )
+        client_options = {"url": addr}
+        namespace = os.environ.get("VAULT_NAMESPACE")
+        if namespace:
+            client_options["namespace"] = namespace
+        client = hvac.Client(**client_options)
         client.auth.approle.login(
             role_id=os.environ["VAULT_ROLE_ID"],
             secret_id=os.environ["VAULT_SECRET_ID"],

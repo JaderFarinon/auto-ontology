@@ -36,12 +36,15 @@ def list_connections() -> list[dict[str, Any]]:
     """
     connections: list[dict[str, Any]] = []
     for row in store().query_read(
-        select(s.catalog_database.c.name, s.catalog_database.c.connection).order_by(
-            s.catalog_database.c.name
-        )
+        select(
+            s.catalog_database.c.name,
+            s.catalog_database.c.connection,
+            s.catalog_database.c.description,
+        ).order_by(s.catalog_database.c.name)
     ):
         secret = read_secret(str(row["name"]))
         if secret:
+            secret["system_description"] = row["description"] or ""
             connections.append(secret)
             continue
         stored = row["connection"]
@@ -49,9 +52,9 @@ def list_connections() -> list[dict[str, Any]]:
             # jsonb here, a JSON *string* on the graph node. Callers get the
             # object either way, so decoding a string keeps a database written
             # before this column existed readable.
-            connections.append(
-                json.loads(stored) if isinstance(stored, str) else stored
-            )
+            connection = json.loads(stored) if isinstance(stored, str) else dict(stored)
+            connection["system_description"] = row["description"] or ""
+            connections.append(connection)
     return connections
 
 
@@ -59,6 +62,7 @@ def insert_connection(
     *,
     connection: str,
     database_name: str,
+    description: str | None = None,
 ) -> dict[str, Any]:
     """Attach connection metadata to the catalog database, creating it if needed.
 
@@ -73,12 +77,15 @@ def insert_connection(
     # and cannot be ingested.
     payload = json.loads(connection) if connection and connection.strip() else None
     statement = insert(s.catalog_database).values(
-        name=database_name, connection=payload
+        name=database_name, connection=payload, description=description
     )
     rows = store().query_write(
         statement.on_conflict_do_update(
             index_elements=[s.catalog_database.c.name],
-            set_={"connection": statement.excluded.connection},
+            set_={
+                "connection": statement.excluded.connection,
+                "description": statement.excluded.description,
+            },
         ).returning(s.catalog_database)
     )
     return dict(rows[0])

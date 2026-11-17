@@ -43,6 +43,20 @@ export type MySqlConnectionParams = {
 	database: string;
 };
 
+export type SQLServerConnectionParams = {
+	type: ConnectionType.MSSQL;
+	host: string;
+	port?: string;
+	user: string;
+	password: string;
+	database: string;
+	cafile?: string;
+	/** Optional schema allowlist selected after the connection test. */
+	schemas?: string[];
+	/** Test-only shortcut that is converted to a one-item schemas allowlist. */
+	schema?: string;
+};
+
 export type SnowflakeConnectionParams = {
 	type: ConnectionType.SNOWFLAKE;
 	account: string;
@@ -92,6 +106,7 @@ export type ConnectionParams = (
 	| DatabricksConnectionParams
 	| PostgresConnectionParams
 	| MySqlConnectionParams
+	| SQLServerConnectionParams
 	| SnowflakeConnectionParams
 	| HeavyDBConnectionParams
 ) &
@@ -100,8 +115,8 @@ export type ConnectionParams = (
 /** A stored connection returned by the API. */
 export type Connection = {
 	database_name: string;
-	connection: ConnectionParams;
+	connection: ConnectionParams & { system_description?: string };
 };
 
 /** User-provided fields for testing or creating a connection. */
-export type ConnectionInput = ConnectionParams;
+export type ConnectionInput = ConnectionParams & { system_description?: string };

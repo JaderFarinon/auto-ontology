@@ -12,6 +12,7 @@ export enum ConnectionType {
 	KYUUBI = 'kyuubi',
 	TRINO = 'trino',
 	CLICKHOUSE = 'clickhouse',
+	MSSQL = 'mssql',
 }
 
 export const connectionDisplayName: Record<ConnectionType, string> = {
@@ -23,6 +24,7 @@ export const connectionDisplayName: Record<ConnectionType, string> = {
 	[ConnectionType.KYUUBI]: 'Apache Kyuubi',
 	[ConnectionType.TRINO]: 'Trino',
 	[ConnectionType.CLICKHOUSE]: 'ClickHouse',
+	[ConnectionType.MSSQL]: 'Microsoft SQL Server',
 };
 
 export const isConnectionType = (value: string | null | undefined): value is ConnectionType =>
@@ -46,6 +48,7 @@ export type ConnectionFieldKey =
 	| 'truststore_password'
 	| 'schema'
 	| 'http_scheme'
+	| 'cafile'
 	| 'sso_federation'
 	| 'table_allow_regex'
 	| 'table_deny_regex';
@@ -128,6 +131,28 @@ export const CONNECTION_FIELDS: Record<ConnectionType, ConnectionField[]> = {
 		{ key: 'user', label: 'User', placeholder: 'root' },
 		{ key: 'password', label: 'Password', secret: true },
 		{ key: 'database', label: 'Database', placeholder: 'my_database' },
+	],
+	[ConnectionType.MSSQL]: [
+		{ key: 'host', label: 'Server Host', placeholder: 'sql.example.com' },
+		{ key: 'port', label: 'Port', placeholder: '1433', optional: true },
+		{ key: 'user', label: 'Read-Only User', placeholder: 'anyhealth_reader' },
+		{ key: 'password', label: 'Password', secret: true },
+		{ key: 'database', label: 'Database', placeholder: 'Clinic' },
+		{
+			key: 'cafile',
+			label: 'Trusted CA Certificate Path',
+			placeholder: '/etc/ssl/certs/sql-server-ca.pem',
+			optional: true,
+			hint: 'Optional path inside the application container. The server certificate is validated when TLS is used.',
+		},
+		{
+			key: 'schema',
+			label: 'Schema',
+			placeholder: 'Leave empty to choose from the list',
+			hint: 'Ingest only this schema. Leave empty to choose schemas after testing the connection.',
+			optional: true,
+			testOnly: true,
+		},
 	],
 	[ConnectionType.SNOWFLAKE]: [
 		{ key: 'account', label: 'Account', placeholder: 'xy12345.us-east-1' },

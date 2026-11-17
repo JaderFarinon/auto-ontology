@@ -120,6 +120,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./app/public
 # doesn't perturb the Next.js standalone node_modules at /app/app.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma /app/migrate/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts /app/migrate/prisma.config.ts
+# The migration shell script can inherit CRLF from a Windows checkout.
+RUN sed -i 's/\r$//' /app/migrate/prisma/migrate.sh
 # prisma pins mysql2 3.15.3 exactly, even in its latest 7.x; it only uses it
 # for MySQL, but the copy still ships (GHSA-3f6p-5ww8-9rcr, fixed in 3.22.0).
 # npm is only needed to install this; migrate.sh runs prisma with plain

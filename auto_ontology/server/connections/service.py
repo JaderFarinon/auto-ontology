@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 from auto_ontology.connectors.connection_string_factory import build_connection_string
@@ -43,6 +44,15 @@ SECRET_FIELDS = frozenset(
         "truststore_password",
     }
 )
+
+
+def _require_vault_if_enforced() -> None:
+    """Refuse plaintext credential storage when production enables the guard."""
+    required = os.environ.get("REQUIRE_VAULT_FOR_CONNECTIONS", "").strip().lower()
+    if required in {"1", "true", "yes", "on"} and not is_vault_configured():
+        raise ValueError(
+            "Vault must be configured before creating or updating database connections."
+        )
 
 
 def _database_already_connected(database_name: str) -> bool:
@@ -199,6 +209,7 @@ def create_connection(
     # truth for what gets ingested, so drop it.
     connection = {key: value for key, value in connection.items() if key != "schema"}
 
+    system_description = str(connection.pop("system_description", "") or "").strip() or None
     database_name = str(connection.get("database"))
     if not database_name:
         raise ValueError("Database name is required")
@@ -210,6 +221,8 @@ def create_connection(
     if _database_already_connected(database_name):
         raise ValueError(f"A connection for database {database_name!r} already exists")
 
+    # Production can require Vault so credentials never fall back to JSONB.
+    _require_vault_if_enforced()
     # With Vault configured, store credentials in Vault and keep them off the
     # catalog row; otherwise fall back to persisting the JSON on the row.
     vault_configured = is_vault_configured()
@@ -218,6 +231,7 @@ def create_connection(
     insert_connection(
         connection=json.dumps(connection) if not vault_configured else "",
         database_name=database_name,
+        description=system_description,
     )
 
     _refresh_connection_caches()
@@ -269,16 +283,22 @@ def update_connection(
         stored,
     )
 
+    system_description = str(updated.pop("system_description", "") or "").strip() or None
+    _require_vault_if_enforced()
     if is_vault_configured():
         write_secret(database_name, updated)
         # Blank out any credentials the row still carries from before Vault was
         # configured, so there is only ever one copy of them.
-        insert_connection(connection="", database_name=database_name)
+        insert_connection(
+            connection="", database_name=database_name, description=system_description
+        )
     else:
         insert_connection(
             connection=json.dumps(updated),
             database_name=database_name,
+            description=system_description,
         )
+    updated["system_description"] = system_description or ""
 
     _refresh_connection_caches()
 

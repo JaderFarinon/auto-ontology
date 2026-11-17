@@ -7,8 +7,6 @@ services:
     image: pgvector/pgvector:pg17
     container_name: postgres
     restart: unless-stopped
-    ports:
-      - "${POSTGRES_PORT}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -21,12 +19,21 @@ services:
       timeout: 5s
       retries: 10
 
+  vault:
+    image: hashicorp/vault:1.20
+    container_name: auto-ontology-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    command: ["server"]
+    volumes:
+      - ./vault-config.hcl:/vault/config/vault.hcl:ro
+      - vault_data:/vault/file
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
     restart: unless-stopped
-    ports:
-      - "5050:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
@@ -43,16 +50,21 @@ services:
     image: auto-ontology:latest
     container_name: auto-ontology
     restart: unless-stopped
-    ports:
-      - "3001:3001"
     env_file:
       - .env
+      - .env.vault
     environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_AUTH_MOUNT: approle/nvdcs/dc1
+      VAULT_KV_MOUNT: auto-ontology
+      REQUIRE_VAULT_FOR_CONNECTIONS: "true"
       POSTGRES_HOST: postgres
       # In-network port; POSTGRES_PORT in .env is the host-side mapping.
       POSTGRES_PORT: "5432"
       INGESTION_SERVICE_URL: http://ingestion-service:3002
     depends_on:
+      vault:
+        condition: service_started
       postgres:
         condition: service_started
       # Without this the backend starts before Alembic has run and 500s
@@ -72,8 +84,6 @@ services:
     container_name: auto-ontology-ingestion-service
     restart: unless-stopped
     command: ["ingestion_service"]
-    ports:
-      - "3002:3002"
     # The image healthcheck targets the backend (:3001/api/health/live); the
     # ingestion service serves its own on :3002. Liveness, not /health — that
     # one probes Postgres, and a container healthcheck gated on a dependency
@@ -90,10 +100,17 @@ services:
       start_period: 15s
     env_file:
       - .env
+      - .env.vault
     environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_AUTH_MOUNT: approle/nvdcs/dc1
+      VAULT_KV_MOUNT: auto-ontology
+      REQUIRE_VAULT_FOR_CONNECTIONS: "true"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
     depends_on:
+      vault:
+        condition: service_started
       postgres:
         condition: service_started
       auto-ontology-migrate:
@@ -156,8 +173,11 @@ services:
     image: auto-ontology-frontend:latest
     container_name: auto-ontology-frontend
     restart: unless-stopped
+    # Only the browser-facing app is published. Bind it to loopback for local
+    # development, or set APP_BIND_IP to the private app-server address reachable
+    # by the HTTPS proxy; do not bind this service to a public interface.
     ports:
-      - "3000:3000"
+      - "${APP_BIND_IP:-127.0.0.1}:3000:3000"
     env_file:
       - .env
     environment:
@@ -175,3 +195,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  vault_data:
